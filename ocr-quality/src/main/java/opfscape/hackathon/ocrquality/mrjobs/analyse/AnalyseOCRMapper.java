@@ -6,12 +6,16 @@ package opfscape.hackathon.ocrquality.mrjobs.analyse;
 
 import java.io.IOException;
 import java.util.StringTokenizer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
+import opfscape.hackathon.ocrquality.solr.SolrSearcher;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.lib.input.FileSplit;
+import org.apache.solr.client.solrj.SolrServerException;
 
 /**
  *
@@ -28,6 +32,10 @@ public class AnalyseOCRMapper extends Mapper<LongWritable, Text, FileNameWordKey
     protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
         String line = value.toString();
         StringTokenizer tokenizer = new StringTokenizer(line);
+        
+        FileSplit fileSplit = (FileSplit) context.getInputSplit();
+        String filename = fileSplit.getPath().getName();
+        String century = getCentury(filename);
 
         while (tokenizer.hasMoreTokens()) {
 
@@ -42,15 +50,27 @@ public class AnalyseOCRMapper extends Mapper<LongWritable, Text, FileNameWordKey
 
             // check with HBase dictionary
             int found = (int) Math.round(Math.random() * 1);
+            
+            if (century == null) {
+                try {
+                    found = SolrSearcher.isWordInAnyDict(token)?1:0;  
+                } catch (SolrServerException ex) {
+                    Logger.getLogger(AnalyseOCRMapper.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+            else {
+                try {
+                    found = SolrSearcher.isWordInDict(token, century)?1:0;  
+                } catch (SolrServerException ex) {
+                    Logger.getLogger(AnalyseOCRMapper.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
 
             // number of correctly recognised words
             values[2] = new IntWritable(found);
 
             // number of incorrectly recognised words
             values[3] = found == 1 ? zero : one;
-
-            FileSplit fileSplit = (FileSplit) context.getInputSplit();
-            String filename = fileSplit.getPath().getName();
 
             FileNameWordKey fnwk = new FileNameWordKey(filename, token);
             if (isWord) {
@@ -93,5 +113,21 @@ public class AnalyseOCRMapper extends Mapper<LongWritable, Text, FileNameWordKey
 
 //        boolean isWord = !p.matcher(token).find();
 //        return isWord;
+    }
+
+    private String getCentury(String filename) {
+        if (filename.contains("Z162171105")) {
+            return "19";
+        } 
+        
+        if (filename.contains("Z156717303")) {
+            return "18";
+        }
+        
+        if (filename.contains("Z176826207")) {
+            return "19";
+        }
+        
+        return null;
     }
 }

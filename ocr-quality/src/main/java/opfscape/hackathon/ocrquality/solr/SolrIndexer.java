@@ -29,7 +29,7 @@ public class SolrIndexer {
 	 * @return
 	 */
 	private static TreeMap<String, Integer> readLexiconFile(String fileName) {
-		TreeMap<String, Integer> result = new TreeMap<>();
+		TreeMap<String, Integer> result = new TreeMap<String, Integer>();
 		InputStream is = SolrSearcher.class.getClassLoader().getResourceAsStream(
 				fileName);
 		Scanner scanner = new Scanner(is);
@@ -111,7 +111,7 @@ public class SolrIndexer {
 	private static void addLexToIndex(int century, Map<String, Integer> dict)
 			throws SolrServerException, IOException {
 		HttpSolrServer server =  new HttpSolrServer(SolrUtil.SOLR_URL);
-		Collection<SolrInputDocument> coll = new ArrayList<>(51);
+		Collection<SolrInputDocument> coll = new ArrayList<SolrInputDocument>(51);
 		int i = 0;
 
 		for (Entry<String, Integer> e : dict.entrySet()) {
@@ -126,7 +126,7 @@ public class SolrIndexer {
 
 			if (i % 500 == 0) {
 				server.add(coll);
-				coll = new ArrayList<>(51);
+				coll = new ArrayList<SolrInputDocument>(51);
 				if (i % 2000 == 0) {
 					server.commit();
 				}
