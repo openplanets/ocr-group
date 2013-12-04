@@ -18,7 +18,9 @@ import org.apache.hadoop.mapreduce.lib.input.FileSplit;
  * @author scape
  */
 public class AnalyseOCRMapper extends Mapper<LongWritable, Text, FileNameWordKey, IntArrayWritable> {
-    private Pattern p = Pattern.compile("[^a-zA-Z0-9]");
+
+    private Pattern cleanUpEnd = Pattern.compile(".*[\\s.,\\-)]$");
+    private Pattern cleanUpBeg = Pattern.compile("^[$\\s()\\*,\"'.\\-$&].*");
     private static IntWritable one = new IntWritable(1);
     private static IntWritable zero = new IntWritable(0);
 
@@ -28,7 +30,7 @@ public class AnalyseOCRMapper extends Mapper<LongWritable, Text, FileNameWordKey
         StringTokenizer tokenizer = new StringTokenizer(line);
 
         while (tokenizer.hasMoreTokens()) {
-            
+
             String token = clearToken(tokenizer.nextToken());
 
             IntWritable[] values = new IntWritable[4];
@@ -51,23 +53,37 @@ public class AnalyseOCRMapper extends Mapper<LongWritable, Text, FileNameWordKey
             String filename = fileSplit.getPath().getName();
 
             FileNameWordKey fnwk = new FileNameWordKey(filename, token);
-            context.write(fnwk, new IntArrayWritable(values));
+            if (isWord) {
+                context.write(fnwk, new IntArrayWritable(values));
+            }
         }
     }
 
     private String clearToken(String token) {
-        if (token.length() > 1 && (token.charAt(token.length() - 1) == '.' || token.charAt(token.length() - 1) == ',')) {
-            return token.substring(0, token.length() - 1);
+//        if (token.length() > 1 && (token.charAt(token.length() - 1) == '.' || token.charAt(token.length() - 1) == ',')) {
+//            return token.substring(0, token.length() - 1);
+//        }
+//        if (token.length() > 1 && (token.charAt(0) == '(')) {
+//            return token.substring(1, token.length());
+//        }
+        boolean cleanEnd = cleanUpEnd.matcher(token).find();
+        boolean cleanBeg = cleanUpBeg.matcher(token).find();
+        String result = token;
+
+        if (cleanEnd && result.length() > 0) {
+            result = result.substring(0, result.length() - 1);
         }
-        if (token.length() > 1 && (token.charAt(0) == '(')) {
-            return token.substring(1, token.length());
+        if (cleanBeg && result.length() > 0) {
+            result = result.substring(1, result.length());
         }
-        return token;
+        return result;
     }
 
     private boolean isWord(String token) {
         // check wierd characters in the word
-
+        if (token.length() < 1) {
+            return false;
+        }
         for (int i = 0; i < token.length(); i++) {
             if (!Character.isLetter(token.charAt(i))) {
                 return false;
