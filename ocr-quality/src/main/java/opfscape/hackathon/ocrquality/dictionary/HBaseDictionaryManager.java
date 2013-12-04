@@ -65,7 +65,7 @@ public class HBaseDictionaryManager {
 		}
 	}
 
-	public int getWordFrequency(String word, int century, int frequency) {
+	public int getWordFrequency(String word, int century) {
 		try {
 			Get g = new Get(Bytes.toBytes(word));
 			Result r = table.get(g);
